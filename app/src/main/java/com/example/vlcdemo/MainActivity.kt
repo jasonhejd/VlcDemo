@@ -11,6 +11,7 @@ import androidx.core.view.isVisible
 import com.blankj.utilcode.util.KeyboardUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.blankj.utilcode.util.UriUtils
+import com.drew.imaging.mp4.Mp4MetadataReader
 import com.example.vlcdemo.databinding.ActivityMainBinding
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
@@ -50,6 +51,13 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "metadata:\n")
                 metadata.forEach {
                     Log.d(TAG, "--$it\n")
+                }
+
+                val metadata2 = Mp4MetadataReader.readMetadata(uri2File)
+                metadata2.directories.forEach {
+                    it.tags.forEach {tag ->
+                        Log.d(TAG, "${tag.tagName}: ${tag.description}")
+                    }
                 }
 
                 playVideo(selectedFileUri)
