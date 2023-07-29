@@ -1,30 +1,60 @@
 package com.example.vlcdemo
 
+import android.app.Activity
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
-import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts.GetContent
+import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import com.blankj.utilcode.util.KeyboardUtils
+import com.blankj.utilcode.util.ToastUtils
+import com.blankj.utilcode.util.UriUtils
 import com.example.vlcdemo.databinding.ActivityMainBinding
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.interfaces.IVLCVout
-import org.videolan.libvlc.util.VLCVideoLayout
+import wseemann.media.FFmpegMediaMetadataRetriever
 
-class MainActivity : AppCompatActivity()
-{
+class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
+
     private lateinit var libVlc: LibVLC
     private lateinit var mediaPlayer: MediaPlayer
-    private lateinit var videoLayout: VLCVideoLayout
+    private val ffmpegMmr by lazy {
+        FFmpegMediaMetadataRetriever()
+    }
 
     private val url = "rtsp://10.10.1.163:8080/h264_ulaw.sdp"
 
-    private val resultLauncher = registerForActivityResult(GetContent()) { uri: Uri? ->
-        playVideo(uri)
-    }
+    private val resultLauncher =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            playVideo(uri)
+        }
+
+    private val pickMovieFileLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val data: Intent? = result.data
+                val selectedFileUri: Uri? = data?.data
+                Log.d(TAG, "selectedFileUri= " + selectedFileUri.toString())
+
+                val uri2File = UriUtils.uri2File(selectedFileUri)
+                ffmpegMmr.setDataSource(uri2File.absolutePath)
+                val metadata = ffmpegMmr.metadata.all
+                Log.d(TAG, "metadata:\n")
+                metadata.forEach {
+                    Log.d(TAG, "--$it\n")
+                }
+
+                playVideo(selectedFileUri)
+            }
+        }
 
     private val mBinding by lazy { ActivityMainBinding.inflate(layoutInflater) }
 
@@ -32,6 +62,20 @@ class MainActivity : AppCompatActivity()
         super.onCreate(savedInstanceState)
         setContentView(mBinding.root)
 
+        initVlc()
+
+        mBinding.btnPlay.setOnClickListener {
+            val url = mBinding.etUrl.text.toString()
+            playRtsp(url)
+            KeyboardUtils.hideSoftInput(this)
+//            resultLauncher.launch("video/*")
+        }
+        mBinding.btnPick.setOnClickListener {
+            openSAF()
+        }
+    }
+
+    private fun initVlc() {
         val options = arrayListOf<String>()
         options.add("--rtsp-tcp") // 强制rtsp-tcp，加快加载视频速度
         options.add("--aout=opensles")
@@ -43,11 +87,17 @@ class MainActivity : AppCompatActivity()
         mediaPlayer.setEventListener { event: MediaPlayer.Event ->
             when (event.type) {
                 MediaPlayer.Event.Buffering -> {
-                    Toast.makeText(this, "Buffering", Toast.LENGTH_SHORT).show()
+                    mBinding.progressBar.isVisible = event.buffering != 100f
                 }
+
                 MediaPlayer.Event.EncounteredError -> {
-                    Toast.makeText(this, "Error", Toast.LENGTH_SHORT).show()
+                    ToastUtils.getDefaultMaker().show("Error")
                 }
+
+                MediaPlayer.Event.EndReached -> {
+                    ToastUtils.getDefaultMaker().show("End")
+                }
+
                 else -> {}
             }
         }
@@ -60,20 +110,11 @@ class MainActivity : AppCompatActivity()
 
             }
         })
-        videoLayout = findViewById(R.id.videoLayout)
-
-        val button: Button = findViewById(R.id.btn_play)
-        button.setOnClickListener {
-            val url = mBinding.etUrl.text.toString()
-            playRtsp(url)
-            KeyboardUtils.hideSoftInput(this)
-//            resultLauncher.launch("video/*")
-        }
     }
 
     override fun onStart() {
         super.onStart()
-        mediaPlayer.attachViews(videoLayout, null, false, false)
+        mediaPlayer.attachViews(mBinding.videoLayout, null, false, false)
     }
 
     override fun onResume() {
@@ -131,5 +172,13 @@ class MainActivity : AppCompatActivity()
         media.setHWDecoderEnabled(false, false) // picture is too late to be displayed
         media.release()
         mediaPlayer.play()
+    }
+
+    private fun openSAF() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "video/*"
+        }
+        pickMovieFileLauncher.launch(intent)
     }
 }
