@@ -4,20 +4,16 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.blankj.utilcode.util.KeyboardUtils
 import com.blankj.utilcode.util.ToastUtils
-import com.blankj.utilcode.util.UriUtils
-import com.drew.imaging.mp4.Mp4MetadataReader
 import com.example.vlcdemo.databinding.ActivityMainBinding
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.interfaces.IVLCVout
-import wseemann.media.FFmpegMediaMetadataRetriever
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,9 +23,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var libVlc: LibVLC
     private lateinit var mediaPlayer: MediaPlayer
-    private val ffmpegMmr by lazy {
-        FFmpegMediaMetadataRetriever()
-    }
 
     private val url = "rtsp://10.10.1.163:8080/h264_ulaw.sdp"
 
@@ -43,22 +36,6 @@ class MainActivity : AppCompatActivity() {
             if (result.resultCode == Activity.RESULT_OK) {
                 val data: Intent? = result.data
                 val selectedFileUri: Uri? = data?.data
-                Log.d(TAG, "selectedFileUri= " + selectedFileUri.toString())
-
-                val uri2File = UriUtils.uri2File(selectedFileUri)
-                ffmpegMmr.setDataSource(uri2File.absolutePath)
-                val metadata = ffmpegMmr.metadata.all
-                Log.d(TAG, "metadata:\n")
-                metadata.forEach {
-                    Log.d(TAG, "--$it\n")
-                }
-
-                val metadata2 = Mp4MetadataReader.readMetadata(uri2File)
-                metadata2.directories.forEach {
-                    it.tags.forEach {tag ->
-                        Log.d(TAG, "${tag.tagName}: ${tag.description}")
-                    }
-                }
 
                 playVideo(selectedFileUri)
             }
@@ -91,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         options.add("-vvv") // 日志级别
         libVlc = LibVLC(this, options)
         mediaPlayer = MediaPlayer(libVlc)
+        mediaPlayer.scale = 0f
         mediaPlayer.setAudioOutput("opensles_android")
         mediaPlayer.setEventListener { event: MediaPlayer.Event ->
             when (event.type) {
@@ -122,7 +100,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        mediaPlayer.attachViews(mBinding.videoLayout, null, false, false)
+//        mediaPlayer.attachViews(mBinding.videoLayout, null, false, false)
+        mediaPlayer.vlcVout.setWindowSize(mBinding.surfaceView.width, mBinding.surfaceView.height)
+
+        mediaPlayer.vlcVout.setVideoView(mBinding.surfaceView)
+        mediaPlayer.vlcVout.attachViews()
     }
 
     override fun onResume() {
@@ -136,13 +118,14 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         if (mediaPlayer.isPlaying) {
-            mediaPlayer.stop()
+            mediaPlayer.pause()
         }
     }
 
     override fun onStop() {
         super.onStop()
-        mediaPlayer.detachViews()
+//        mediaPlayer.detachViews()
+        mediaPlayer.vlcVout.detachViews()
     }
 
     override fun onDestroy() {
@@ -159,7 +142,7 @@ class MainActivity : AppCompatActivity() {
         val fd = contentResolver.openFileDescriptor(uri, "r")
 
         val media = Media(libVlc, fd!!.fileDescriptor)
-        media.setHWDecoderEnabled(true, false)
+//        media.setHWDecoderEnabled(true, false)
         media.addOption(":network-caching=600")
 
         mediaPlayer.media = media

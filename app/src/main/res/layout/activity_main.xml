@@ -7,13 +7,19 @@
     tools:context=".MainActivity">
 
 
-    <org.videolan.libvlc.util.VLCVideoLayout
-        android:id="@+id/videoLayout"
+<!--    <org.videolan.libvlc.util.VLCVideoLayout-->
+<!--        android:id="@+id/videoLayout"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="match_parent"-->
+<!--        app:layout_constraintEnd_toEndOf="parent"-->
+<!--        app:layout_constraintStart_toStartOf="parent"-->
+<!--        app:layout_constraintTop_toTopOf="parent" />-->
+
+    <com.example.vlcdemo.ZoomableTextureView
+        android:id="@+id/surface_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:layout_height="match_parent" />
+
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintLayout2"
